@@ -14,17 +14,13 @@ const firebaseConfig = {
   appId: "1:711244469403:web:9afcffc774ce0c1054623e",
   measurementId: "G-H0K0N10MGV"
 };
-
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const studentRef = ref(db, "students");
-
 let currentEditKey = null;
 
 // Show form for adding/editing student
 window.showForm = function (key = null) {
-  console.log("showForm called");
   document.getElementById("studentForm").classList.remove("hidden");
   if (key) {
     currentEditKey = key;
@@ -33,7 +29,7 @@ window.showForm = function (key = null) {
     document.getElementById("name").value = student.name;
     document.getElementById("phone").value = student.phone;
     document.getElementById("gender").value = student.gender;
-    document.getElementById("height").value = student.height;
+    document.getElementById("heightFeet").value = student.height;
     document.getElementById("weight").value = student.weight;
   } else {
     currentEditKey = null;
@@ -60,26 +56,29 @@ window.saveStudent = function () {
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const gender = document.getElementById("gender").value.trim();
-  const height = parseFloat(document.getElementById("height").value);
+  const heightFeet = parseFloat(document.getElementById("heightFeet").value);
   const weight = parseFloat(document.getElementById("weight").value);
-
-  // Validate inputs
-  if (!name || !phone || !gender || isNaN(height) || isNaN(weight)) {
+  
+  if (!name || !phone || !gender || isNaN(heightFeet) || isNaN(weight)) {
     alert("Please fill all fields correctly.");
     return;
   }
-
-  const bmi = weight / (height * height);
+  
+  const heightInMeters = heightFeet * 0.3048;
+  if (heightInMeters <= 0 || weight <= 0) {
+    alert("Height and weight must be positive numbers.");
+    return;
+  }
+  
+  const bmi = weight / (heightInMeters * heightInMeters);
   const status = getBMIStatus(bmi);
-
-  const student = { name, phone, gender, height, weight, bmi, status };
-
+  const student = { name, phone, gender, height: heightInMeters, weight, bmi, status };
+  
   if (currentEditKey) {
     update(ref(db, `students/${currentEditKey}`), student);
   } else {
     push(studentRef, student);
   }
-
   hideForm();
 }
 
@@ -94,9 +93,7 @@ window.deleteStudent = function (key) {
 function renderTable(students) {
   const tbody = document.querySelector("#studentTable tbody");
   tbody.innerHTML = "";
-
   if (!students) return;
-
   Object.entries(students).forEach(([key, s]) => {
     const row = document.createElement("tr");
     row.setAttribute("data-key", key);
@@ -105,12 +102,11 @@ function renderTable(students) {
     row.dataset.gender = s.gender;
     row.dataset.height = s.height;
     row.dataset.weight = s.weight;
-
     row.innerHTML = `
       <td>${s.name}</td>
       <td>${s.gender}</td>
       <td>${s.phone}</td>
-      <td>${s.height}</td>
+      <td>${(s.height / 0.3048).toFixed(2)}</td>
       <td>${s.weight}</td>
       <td>${s.bmi.toFixed(2)}</td>
       <td><span class="status ${s.status.class}">${s.status.text}</span></td>
@@ -123,8 +119,11 @@ function renderTable(students) {
   });
 }
 
-// Listen for Firebase data changes
-onValue(studentRef, snapshot => {
+// Firebase data listener
+onValue(studentRef, (snapshot) => {
   const data = snapshot.val();
   renderTable(data);
 });
+</script>
+</body>
+</html>
